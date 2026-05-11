@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HOSALERT - Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f4f4f4;
+        }
+        .header {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+        }
+        .sidebar {
+            width: 280px;
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .main {
+            flex: 1;
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .patient-card {
+            background: #f9f9f9;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .patient-card:hover { background: #e9e9e9; }
+        .alert {
+            background: #ff4757;
+            color: white;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+        button {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .medicine {
+            background: #f0f0f0;
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 3px;
+        }
+        h3 { margin: 0 0 10px 0; color: #333; }
+        .stats {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            flex: 1;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>🏥 HOSALERT - Patient Medication Alert System</h2>
+        <a href="/logout" style="color: white; text-decoration: none;">Logout</a>
+    </div>
+    
+    <div class="stats" id="stats">
+        <div class="stat-card">👨‍⚕️ Patients: <span id="patientCount">0</span></div>
+        <div class="stat-card">💊 Active Medicines: <span id="medicineCount">0</span></div>
+        <div class="stat-card">🔔 Alerts: <span id="alertCount">0</span></div>
+    </div>
+    
+    <div class="container">
+        <div class="sidebar">
+            <h3>👨‍⚕️ Patients</h3>
+            <div id="patientsList"></div>
+        </div>
+        
+        <div class="main">
+            <h3>🔔 Active Alerts</h3>
+            <div id="alertsList"></div>
+            
+            <h3>💊 Medicines</h3>
+            <div id="medicinesList"></div>
+        </div>
+    </div>
+    
+    <script>
+        let currentPatientId = null;
+        
+        function loadPatients() {
+            fetch('/api/patients')
+                .then(res => res.json())
+                .then(patients => {
+                    const container = document.getElementById('patientsList');
+                    document.getElementById('patientCount').innerText = patients.length;
+                    container.innerHTML = patients.map(p => `
+                        <div class="patient-card" onclick="selectPatient(${p.id})">
+                            <strong>${p.name}</strong><br>
+                            Room ${p.room_number} | Age ${p.age}
+                        </div>
+                    `).join('');
+                    if(patients.length > 0) selectPatient(patients[0].id);
+                });
+        }
+        
+        function selectPatient(id) {
+            currentPatientId = id;
+            loadMedicines(id);
+        }
+        
+        function loadMedicines(patientId) {
+            fetch(`/api/medicines/${patientId}`)
+                .then(res => res.json())
+                .then(medicines => {
+                    const container = document.getElementById('medicinesList');
+                    document.getElementById('medicineCount').innerText = medicines.length;
+                    container.innerHTML = medicines.map(m => `
+                        <div class="medicine">
+                            <strong>${m.name}</strong> - ${m.dosage} at ${m.time}
+                            <span style="color: ${m.status === 'pending' ? 'orange' : 'green'}">
+                                (${m.status})
+                            </span>
+                        </div>
+                    `).join('');
+                });
+        }
+        
+        function loadAlerts() {
+            fetch('/api/alerts')
+                .then(res => res.json())
+                .then(alerts => {
+                    const container = document.getElementById('alertsList');
+                    document.getElementById('alertCount').innerText = alerts.length;
+                    container.innerHTML = alerts.map(a => `
+                        <div class="alert">
+                            <span>🔔 ${a.patient_name}: ${a.message}</span>
+                            <button onclick="acknowledgeAlert(${a.id})">Acknowledge</button>
+                        </div>
+                    `).join('');
+                });
+        }
+        
+        function acknowledgeAlert(alertId) {
+            fetch(`/api/alerts/${alertId}/acknowledge`, {method: 'POST'})
+                .then(() => {
+                    loadAlerts();
+                });
+        }
+        
+        // Auto-refresh every 10 seconds
+        setInterval(() => {
+            loadAlerts();
+            loadPatients();
+        }, 10000);
+        
+        loadPatients();
+        loadAlerts();
+    </script>
+</body>
+</html>
